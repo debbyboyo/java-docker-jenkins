@@ -1,14 +1,29 @@
-# Stage 1: Build the application
-FROM maven:3.8.5-openjdk-17 AS build
-WORKDIR /app
-COPY pom.xml .
-COPY src ./src
-RUN mvn clean package -DskipTests
+# Stage 1: Build the Angular app using Node
+FROM node:18 AS build
 
-# Stage 2: Run the application
-FROM openjdk:17-jdk-slim
+# Set working directory
 WORKDIR /app
-COPY --from=build /home/ec2-user/JavaWeb3-jenk/target/*.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
 
+# Copy all files to the container
+COPY . .
+
+# Install dependencies
+RUN npm install
+
+# Build the Angular app for production
+RUN npm run build --configuration production
+
+# Stage 2: Serve the app with Nginx
+FROM nginx:alpine
+
+# Remove default Nginx website
+RUN rm -rf /usr/share/nginx/html/*
+
+# Copy the Angular build output to Nginx's web root
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Expose port 80
+EXPOSE 80
+
+# Start Nginx server
+CMD ["nginx", "-g", "daemon off;"]
